@@ -1,15 +1,33 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Bell, ClipboardList, CreditCard, Globe, Info, LogOut, Menu as MenuIcon, Moon, Palette, Plus, Search, Sun, Users as UsersIcon, X } from "lucide-react";
+import { Bell, ChevronsUpDown, ClipboardList, Globe, Info, ListChecks, LogOut, Megaphone, Menu as MenuIcon, MessageSquare, Moon, Package, Plus, Search, Sun, Ticket, Upload, Users as UsersIcon, Video, X } from "lucide-react";
 import { useStore } from "../store/store";
-import { ME_ADMIN, ME_STUDENT, ME_TEACHER } from "../data/seed";
-import { NAV, ROLE_LABEL } from "./nav";
+import { INSTITUTE, ME_ADMIN, ME_STUDENT, ME_TEACHER } from "../data/seed";
+import { NAV, navItems } from "./nav";
 import { shownStatus } from "../lib/selectors";
 import { cn } from "../lib/utils";
 import type { Role } from "../lib/types";
 import { Avatar, IconButton, Kbd, Menu, Modal, Segmented } from "./ui";
 import { NoticeRow } from "./NoticeRow";
 import logo from "../assets/trigrexam-logo.png";
+
+const CREATE: Record<Role, { label: string; to: string; icon: typeof Search }[]> = {
+  admin: [
+    { label: "New assignment", to: "/assignments/new", icon: ClipboardList },
+    { label: "New test", to: "/tests?new=1", icon: ListChecks },
+    { label: "Upload a video or PDF", to: "/library?new=1", icon: Upload },
+    { label: "Schedule a live class", to: "/classes", icon: Video },
+    { label: "New package", to: "/packages?new=1", icon: Package },
+    { label: "New coupon", to: "/coupons?new=1", icon: Ticket },
+    { label: "Send a message", to: "/messages?new=1", icon: MessageSquare },
+    { label: "Post news", to: "/news?new=1", icon: Megaphone },
+  ],
+  teacher: [
+    { label: "New assignment", to: "/assignments/new", icon: ClipboardList },
+    { label: "Schedule a live class", to: "/classes", icon: Video },
+  ],
+  student: [],
+};
 
 function usePersona() {
   const { role, teachers, students } = useStore();
@@ -85,8 +103,8 @@ function Palette2({ open, onClose }: { open: boolean; onClose: () => void }) {
   const results = useMemo(() => {
     const term = q.trim().toLowerCase();
     const out: { group: string; label: string; hint?: string; to: string; icon: typeof Search }[] = [];
-    for (const it of NAV[role]) if (!term || it.label.toLowerCase().includes(term)) out.push({ group: "Go to", label: it.label, to: it.to, icon: it.icon });
-    if (role !== "student" && (!term || "new assignment create".includes(term))) out.push({ group: "Do", label: "Create a new assignment", to: "/assignments/new", icon: Plus });
+    for (const it of navItems(role)) if (!term || it.label.toLowerCase().includes(term)) out.push({ group: "Go to", label: it.label, to: it.to, icon: it.icon });
+    for (const c of CREATE[role]) if (!term || c.label.toLowerCase().includes(term) || "create new".includes(term)) out.push({ group: "Do", label: c.label, to: c.to, icon: c.icon });
     const myIds = new Set(submissions.filter((s) => s.studentId === ME_STUDENT).map((s) => s.assignmentId));
     for (const a of assignments) {
       if (role === "student" && !myIds.has(a.id)) continue;
@@ -163,91 +181,111 @@ export function Shell() {
 
   const switchRole = (r: Role) => { setRole(r); nav("/"); };
   const count = (b?: "review" | "todo") => (b === "review" ? badges.review : b === "todo" ? badges.todo : 0);
-  const extra = role === "admin" ? [{ to: "/billing", label: "Plan and billing" }, { to: "/settings", label: "Settings" }] : [];
+  const roles = <Segmented<Role> size="sm" label="Preview as" value={role} onChange={(r) => { setNavOpen(false); switchRole(r); }} options={[{ id: "admin", label: "Admin" }, { id: "teacher", label: "Teacher" }, { id: "student", label: "Student" }]} />;
+
+  const links = (big?: boolean) => NAV[role].map((g, gi) => (
+    <div key={gi} className={gi ? (big ? "mt-6" : "mt-5") : ""}>
+      {g.title && <p className={cn("eyebrow mb-1.5 px-3", big ? "text-[12px]" : "text-[11px]")}>{g.title}</p>}
+      {g.items.map((it) => {
+        const c = count(it.badge);
+        return (
+          <NavLink key={it.to} to={it.to} end={it.end} onClick={() => setNavOpen(false)}
+            className={({ isActive }) => cn("group flex items-center gap-3 rounded-xl px-3 font-medium transition-colors", big ? "py-2.5 text-[17px]" : "py-[7px] text-[14px]", isActive ? "bg-black/[0.06] text-ink dark:bg-white/10" : "text-ink/70 hover:bg-black/[0.035] hover:text-ink dark:hover:bg-white/[.06]")}>
+            {({ isActive }) => (<>
+              <it.icon size={big ? 19 : 17} strokeWidth={isActive ? 2.3 : 1.9} className={isActive ? "text-sky-600" : "text-ink/45 group-hover:text-ink/70"} />
+              <span className="flex-1 truncate">{it.label}</span>
+              {c > 0 && <span className="rounded-full bg-sky px-1.5 text-[11px] font-bold leading-[18px] text-white tnum">{c}</span>}
+            </>)}
+          </NavLink>
+        );
+      })}
+    </div>
+  ));
+
+  const account = (
+    <Menu
+      align="left"
+      trigger={(p) => (
+        <button {...p} aria-label="Account menu" className="flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-black/[.04] dark:hover:bg-white/[.06]">
+          <Avatar name={persona.name} size={34} />
+          <span className="min-w-0 flex-1"><span className="block truncate text-[14px] font-semibold">{persona.name}</span><span className="block truncate text-[12px] text-muted">{persona.sub}</span></span>
+          <ChevronsUpDown size={15} className="text-faint" />
+        </button>
+      )}
+      items={[
+        { label: "About this design", icon: Info, onClick: () => nav("/about") },
+        { label: "Product website", icon: Globe, onClick: () => nav("/welcome") },
+        { label: dark ? "Light mode" : "Dark mode", icon: dark ? Sun : Moon, onClick: () => setDark(!dark) },
+        { label: "Sign out", icon: LogOut, onClick: () => nav("/login") },
+      ]}
+    />
+  );
 
   return (
     <div className="min-h-dvh bg-bg">
       {run > 1 && <span key={run} className="navbar-run" aria-hidden />}
 
-      <header className="glass fixed inset-x-0 top-0 z-50 border-b border-black/[0.06] dark:border-white/10">
-        <div className="mx-auto flex h-[52px] max-w-[1280px] items-center gap-1 px-4 sm:px-6">
-          <Link to="/" aria-label="Trigrexam home" className="mr-2 shrink-0 lg:mr-5"><img src={logo} alt="Trigrexam" className="h-[22px] w-auto dark:brightness-0 dark:invert" /></Link>
+      {/* Sidebar */}
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[256px] flex-col border-r border-line bg-surface/80 backdrop-blur-xl lg:flex">
+        <Link to="/" aria-label="Trigrexam home" className="flex items-center gap-3 px-5 pb-4 pt-5">
+          <img src={logo} alt="Trigrexam" className="h-[22px] w-auto dark:brightness-0 dark:invert" />
+        </Link>
+        <p className="-mt-2 px-5 pb-3 text-[12px] font-medium text-muted">{INSTITUTE}</p>
+        <nav aria-label="Main" className="no-scrollbar flex-1 overflow-y-auto px-3 pb-4">{links()}</nav>
+        <div className="border-t border-line px-3 pb-3 pt-3">
+          <p className="eyebrow mb-2 px-1 text-[11px]">Preview as</p>
+          <div className="mb-2 [&>div]:flex [&>div]:w-full [&_button]:flex-1">{roles}</div>
+          {account}
+        </div>
+      </aside>
 
-          <nav aria-label="Main" className="hidden flex-1 items-center justify-center gap-0.5 lg:flex">
-            {NAV[role].map((it) => {
-              const c = count(it.badge);
-              return (
-                <NavLink key={it.to} to={it.to} end={it.end} className={({ isActive }) => cn("relative inline-flex items-center rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors", isActive ? "bg-black/[0.06] text-ink dark:bg-white/10" : "text-ink/65 hover:text-ink")}>
-                  {it.label}
-                  {c > 0 && <span className="ml-1.5 rounded-full bg-sky px-1.5 text-[10px] font-bold leading-4 text-white tnum">{c}</span>}
-                </NavLink>
-              );
-            })}
-          </nav>
-
-          <div className="ml-auto flex items-center gap-0.5 lg:ml-0">
-            <IconButton icon={Search} label="Search (Ctrl K)" size={36} onClick={() => setPalette(true)} className="rounded-full text-ink/70 hover:bg-black/[.06] hover:text-ink dark:hover:bg-white/10" />
-            <div className="mx-1.5 hidden xl:block">
-              <Segmented<Role> size="sm" label="Preview as" value={role} onChange={switchRole} options={[{ id: "admin", label: "Admin" }, { id: "teacher", label: "Teacher" }, { id: "student", label: "Student" }]} />
-            </div>
-            <IconButton icon={dark ? Sun : Moon} label={dark ? "Switch to light mode" : "Switch to dark mode"} size={36} onClick={() => setDark(!dark)} className="hidden rounded-full text-ink/70 hover:bg-black/[.06] hover:text-ink sm:inline-flex dark:hover:bg-white/10" />
-            <Bell2 />
-            <Menu
-              trigger={(p) => (
-                <button {...p} aria-label="Account menu" className="ml-0.5 hidden rounded-full p-0.5 transition-opacity hover:opacity-80 sm:block"><Avatar name={persona.name} size={30} /></button>
+      <div className="lg:pl-[256px]">
+        {/* Top bar */}
+        <header className="glass sticky top-0 z-30 border-b border-black/[0.06] dark:border-white/10">
+          <div className="mx-auto flex h-[60px] max-w-[1240px] items-center gap-2 px-4 sm:px-8">
+            <Link to="/" aria-label="Trigrexam home" className="mr-1 shrink-0 lg:hidden"><img src={logo} alt="Trigrexam" className="h-[20px] w-auto dark:brightness-0 dark:invert" /></Link>
+            <button onClick={() => setPalette(true)} className="ml-auto flex h-10 items-center gap-2.5 rounded-full border border-line bg-surface px-3.5 text-[14px] text-faint transition-colors hover:border-line-strong sm:w-[300px] lg:ml-0 lg:w-[380px]" aria-label="Search (Ctrl K)">
+              <Search size={16} />
+              <span className="hidden flex-1 text-left sm:block">Search or jump to anything</span>
+              <span className="hidden sm:block"><Kbd>⌘K</Kbd></span>
+            </button>
+            <div className="ml-auto flex items-center gap-1">
+              {CREATE[role].length > 0 && (
+                <Menu
+                  trigger={(p) => (
+                    <button {...p} className="mr-1 inline-flex h-10 items-center gap-1.5 rounded-full bg-navy px-4 text-[14px] font-semibold text-white shadow-sm transition-colors hover:bg-navy-700">
+                      <Plus size={17} strokeWidth={2.4} /> <span className="hidden sm:inline">Create</span>
+                    </button>
+                  )}
+                  items={CREATE[role].map((c) => ({ label: c.label, icon: c.icon, onClick: () => nav(c.to) }))}
+                />
               )}
-              items={[
-                { label: `${persona.name} · ${ROLE_LABEL[role]}`, onClick: () => {} },
-                { label: "Preview as Admin", onClick: () => switchRole("admin") },
-                { label: "Preview as Teacher", onClick: () => switchRole("teacher") },
-                { label: "Preview as Student", onClick: () => switchRole("student") },
-                ...(role === "admin" ? [{ label: "Plan and billing", icon: CreditCard, onClick: () => nav("/billing") }, { label: "Settings", icon: Palette, onClick: () => nav("/settings") }] : []),
-                { label: "About this design", icon: Info, onClick: () => nav("/about") },
-                { label: "Product website", icon: Globe, onClick: () => nav("/welcome") },
-                { label: "Sign out", icon: LogOut, onClick: () => nav("/login") },
-              ]}
-            />
-            <IconButton icon={navOpen ? X : MenuIcon} label={navOpen ? "Close menu" : "Open menu"} size={36} onClick={() => setNavOpen(!navOpen)} className="rounded-full text-ink/70 lg:hidden" />
+              <IconButton icon={dark ? Sun : Moon} label={dark ? "Switch to light mode" : "Switch to dark mode"} size={38} onClick={() => setDark(!dark)} className="hidden rounded-full text-ink/70 hover:bg-black/[.06] hover:text-ink sm:inline-flex dark:hover:bg-white/10" />
+              <Bell2 />
+              <IconButton icon={navOpen ? X : MenuIcon} label={navOpen ? "Close menu" : "Open menu"} size={38} onClick={() => setNavOpen(!navOpen)} className="rounded-full text-ink/70 lg:hidden" />
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {navOpen && (
-        <div className="fixed inset-x-0 bottom-0 top-[52px] z-40 overflow-y-auto bg-surface px-6 pb-10 pt-6 lg:hidden">
-          <nav aria-label="Menu">
-            {NAV[role].map((it, i) => (
-              <NavLink key={it.to} to={it.to} end={it.end} onClick={() => setNavOpen(false)} className="rise flex items-center justify-between border-b border-line py-3.5 text-[26px] font-semibold tracking-tight text-ink" style={{ animationDelay: `${i * 40}ms` }}>
-                {it.label}
-                {count(it.badge) > 0 && <span className="rounded-full bg-sky px-2.5 py-0.5 text-sm font-bold text-white tnum">{count(it.badge)}</span>}
-              </NavLink>
-            ))}
-            {extra.map((it, i) => (
-              <NavLink key={it.to} to={it.to} onClick={() => setNavOpen(false)} className="rise block border-b border-line py-3.5 text-[20px] font-medium tracking-tight text-muted" style={{ animationDelay: `${(NAV[role].length + i) * 40}ms` }}>{it.label}</NavLink>
-            ))}
-          </nav>
-          <div className="mt-8">
-            <p className="eyebrow mb-3">Preview as</p>
-            <Segmented<Role> label="Preview as" value={role} onChange={(r) => { setNavOpen(false); switchRole(r); }} options={[{ id: "admin", label: "Admin" }, { id: "teacher", label: "Teacher" }, { id: "student", label: "Student" }]} />
+        {navOpen && (
+          <div className="fixed inset-x-0 bottom-0 top-[60px] z-40 overflow-y-auto bg-surface px-4 pb-10 pt-5 lg:hidden">
+            <div className="mb-6 px-3">{roles}</div>
+            <nav aria-label="Menu">{links(true)}</nav>
+            <div className="mt-8 border-t border-line pt-4">{account}</div>
           </div>
-          <div className="mt-8 flex flex-wrap gap-5 text-[15px] font-medium text-sky-600">
-            <button onClick={() => { setNavOpen(false); nav("/about"); }}>About this design</button>
-            <button onClick={() => { setNavOpen(false); nav("/welcome"); }}>Product website</button>
-            <button onClick={() => setDark(!dark)}>{dark ? "Light mode" : "Dark mode"}</button>
-            <button onClick={() => nav("/login")}>Sign out</button>
+        )}
+
+        <main className="mx-auto w-full max-w-[1240px] px-4 pb-24 pt-8 sm:px-8 sm:pt-12">
+          <div key={loc.pathname} className="rise">
+            <Outlet />
           </div>
-        </div>
-      )}
+        </main>
 
-      <main className="mx-auto w-full max-w-[1280px] px-4 pb-24 pt-[84px] sm:px-8 sm:pt-[104px]">
-        <div key={loc.pathname} className="rise">
-          <Outlet />
-        </div>
-      </main>
-
-      <footer className="mx-auto max-w-[1280px] border-t border-line px-4 py-8 text-[12px] leading-relaxed text-faint sm:px-8">
-        <p>Demo with sample data from a fictional institute. Nothing is saved or sent.</p>
-        <p className="mt-1">Copyright © 2026 Trigrexam Inc. · <Link to="/welcome" className="hover:text-ink">Product website</Link> · <Link to="/about" className="hover:text-ink">About this design</Link></p>
-      </footer>
+        <footer className="mx-auto max-w-[1240px] border-t border-line px-4 py-8 text-[12px] leading-relaxed text-faint sm:px-8">
+          <p>Demo with sample data from a fictional institute. Nothing is saved or sent.</p>
+          <p className="mt-1">Copyright © 2026 Trigrexam Inc. · <Link to="/welcome" className="hover:text-ink">Product website</Link> · <Link to="/about" className="hover:text-ink">About this design</Link></p>
+        </footer>
+      </div>
       <Palette2 open={palette} onClose={() => setPalette(false)} />
     </div>
   );

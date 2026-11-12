@@ -26,6 +26,8 @@ import { Landing } from "./pages/Landing";
 import { Billing } from "./pages/Billing";
 import { Store } from "./pages/Store";
 import { MotionNotice, Splash } from "./components/fx";
+import { Module } from "./pages/Module";
+import { MODULE_KEYS } from "./data/modules";
 
 function Home() {
   const { role } = useStore();
@@ -71,6 +73,7 @@ export default function App() {
               <Route path="billing" element={<Gate allow={["admin"]}><Billing /></Gate>} />
               <Route path="store" element={<Gate allow={["admin"]}><Store /></Gate>} />
               <Route path="about" element={<About />} />
+              {MODULE_KEYS.map((k) => <Route key={k} path={k} element={<Gate allow={["admin"]}><Module key={k} id={k} /></Gate>} />)}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

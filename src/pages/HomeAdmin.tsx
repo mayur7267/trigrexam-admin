@@ -154,11 +154,11 @@ export function HomeAdmin() {
     <div className="space-y-8 sm:space-y-10">
       <header className="pb-3">
         <p className="rise text-[15px] font-medium text-muted">{fmtLongDay(now)} · {INSTITUTE}</p>
-        <h1 className="display rise mt-3 text-[44px] sm:text-[76px]" style={{ animationDelay: "60ms" }}>{greeting()},<br className="sm:hidden" /> <span className="gradient-text">{ME_ADMIN.name.split(" ")[0]}</span>.</h1>
-        <p className="rise mt-5 max-w-xl text-[19px] leading-relaxed text-muted sm:text-[23px]" style={{ animationDelay: "120ms" }}>
+        <h1 className="title-xl rise mt-2 text-[34px] sm:text-[44px]" style={{ animationDelay: "60ms" }}>{greeting()}, {ME_ADMIN.name.split(" ")[0]}</h1>
+        <p className="rise mt-2 max-w-xl text-[17px] leading-relaxed text-muted" style={{ animationDelay: "120ms" }}>
           {items.length ? `${items.length} ${items.length === 1 ? "thing needs" : "things need"} you today. Everything else is running on its own.` : "Everything is running on its own today."}
         </p>
-        <div className="rise mt-8 flex flex-wrap gap-3" style={{ animationDelay: "180ms" }}>
+        <div className="rise mt-5 flex flex-wrap gap-3" style={{ animationDelay: "180ms" }}>
           <Button variant="primary" size="lg" icon={Plus} onClick={() => nav("/assignments/new")}>New assignment</Button>
           <Button variant="secondary" size="lg" icon={Video} onClick={() => nav("/classes")}>Schedule a class</Button>
         </div>
